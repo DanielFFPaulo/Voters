@@ -46,37 +46,51 @@ public class Blockchain {
     }
     
     
-    public void addTransaction(Transaction transaction, PublicKey publicKey) throws Exception {
+        public void addTransaction(Transaction transaction, PublicKey publicKey) throws Exception {
 
-        // 1) BLOQUEIO CENTRAL: sem login não há voto
-        if (!Session.isLoggedIn()) {
-            throw new IllegalStateException("Tem de fazer login antes de votar.");
-        }
-
-        // 2) Garantir que o voto pertence ao utilizador autenticado (recomendado)
+        // 1) Garantir que o voto pertence ao utilizador autenticado
+        // Obtém as chaves associadas à sessão atual
         Session.Keys sKeys = Session.get();
 
-        String sessionPub = Base64.getEncoder().encodeToString(sKeys.publicKey.getEncoded());
+        // Converte a chave pública da sessão para Base64
+        // para poder comparar com a chave presente na transação
+        String sessionPub = Base64.getEncoder()
+                .encodeToString(sKeys.publicKey.getEncoded());
 
+        // Verifica se a chave pública do voto corresponde
+        // à chave pública do utilizador autenticado
         if (!transaction.getPublicVoterKey().equals(sessionPub)) {
-            throw new IllegalStateException("A chave do voto não corresponde ao utilizador autenticado.");
+            throw new IllegalStateException(
+                    "A chave do voto não corresponde ao utilizador autenticado."
+            );
         }
 
-        // 3) Validate transaction
+        // 2) Validação da transação
+        // Confirma assinatura digital, integridade dos dados
+        // e outros critérios definidos em isTransactionValid
         if (!isTransactionValid(transaction, publicKey)) {
-            throw new IllegalArgumentException("Invalid transaction");
+            throw new IllegalArgumentException("Transação inválida");
         }
 
-        // 4) Check for double voting
-        if (hasVoterVoted(transaction.getPublicVoterKey(), transaction.getElectionId())) {
-            throw new IllegalArgumentException("Voter has already voted in this election");
+        // 3) Prevenção de voto duplicado
+        // Verifica se este eleitor já votou nesta eleição
+        if (hasVoterVoted(
+                transaction.getPublicVoterKey(),
+                transaction.getElectionId())) {
+            throw new IllegalArgumentException(
+                    "O eleitor já votou nesta eleição."
+            );
         }
 
-        // 5) Add to pending pool
+        // 4) Adiciona a transação ao pool de transações pendentes
+        // Estas transações poderão depois ser incluídas num bloco
         pendingTransactions.add(transaction);
-        System.out.println("Transaction added to pending pool: " + transaction);
+
+        // Log para debug/auditoria
+        System.out.println(
+                "Transação adicionada à lista de transações pendentes.: " + transaction
+        );
     }
-    
     
     
     public void minePendingTransactions() throws InterruptedException {
