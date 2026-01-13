@@ -13,6 +13,7 @@ import java.security.PublicKey;
  * @author Sofia Vedor
  */
 public class Session {
+
     public static class Keys {
         public final String username;
         public final PublicKey publicKey;
