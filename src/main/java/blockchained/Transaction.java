@@ -4,8 +4,10 @@
  */
 package blockchained;
 
+import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
+import java.security.Key;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
@@ -19,20 +21,20 @@ import java.util.Date;
  *
  * @author Acer
  */
-public class Transaction {
+public class Transaction implements Serializable{
     private String transactionId;
-    private  String publicVoterKey;
+    private  Key publicVoterKey;
     private  String encryptedVote;
     private String electionId;
     private long timestamp;
     private byte[] signature;
     private int nonce;
 
-    public Transaction(String voterPublicKey, String vote, String electionId, PrivateKey  privateKey) throws Exception {
+    public Transaction(Key voterPublicKey, String vote, String electionId, PrivateKey  privateKey) throws Exception {
         this.publicVoterKey = voterPublicKey;
         this.electionId = electionId;
         this.timestamp = System.currentTimeMillis();
-        this.nonce = Miner.getNonce(timestamp+publicVoterKey +encryptedVote +electionId, 3);
+        this.nonce = Miner.getNonce(timestamp+publicVoterKey.toString() +encryptedVote +electionId, 3);
         
         this.encryptedVote = encryptVote(vote);
         this.transactionId = calculateHash();
@@ -45,7 +47,7 @@ public class Transaction {
     }
 
     private byte[] signTransaction(PrivateKey privateKey) throws Exception {
-        String data = timestamp+publicVoterKey +encryptedVote +electionId;
+        String data = timestamp+publicVoterKey.toString() +encryptedVote +electionId;
         Signature sig = Signature.getInstance("SHA256withRSA");
         sig.initSign(privateKey);
         sig.update(data.getBytes());
@@ -54,7 +56,7 @@ public class Transaction {
 
     
     public boolean verifySignature(PublicKey publicKey)throws Exception{
-        String data = timestamp+publicVoterKey +encryptedVote +electionId;
+        String data = timestamp+publicVoterKey.toString() +encryptedVote +electionId;
         Signature sig = Signature.getInstance("SHA256withRSA");
         sig.initVerify(publicKey);
         sig.update(data.getBytes());
@@ -64,7 +66,7 @@ public class Transaction {
     
     private String calculateHash() {
         try {
-            String data = timestamp+publicVoterKey +encryptedVote +electionId+nonce;
+            String data = timestamp+publicVoterKey.toString() +encryptedVote +electionId+nonce;
             MessageDigest digest;
             digest = MessageDigest.getInstance("SHA-256");
             byte[] hash = digest.digest(data.getBytes(StandardCharsets.UTF_8));
@@ -87,7 +89,7 @@ public class Transaction {
         return transactionId;
     }
 
-    public String getPublicVoterKey() {
+    public Key getPublicVoterKey() {
         return publicVoterKey;
     }
 
@@ -107,7 +109,7 @@ public class Transaction {
     public String toString() {
                 return "Transaction{" +
                "id='" + transactionId.substring(0, 8) + "...', " +
-               "voter='" + publicVoterKey.substring(0, 8) + "...', " +
+               "voter='" + publicVoterKey.toString().substring(0, 8) + "...', " +
                "election='" + electionId + "', " +
                "time=" + new Date(timestamp) +
                '}';

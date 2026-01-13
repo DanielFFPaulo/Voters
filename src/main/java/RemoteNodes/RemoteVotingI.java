@@ -7,6 +7,7 @@ package RemoteNodes;
 import blockchained.Block;
 import java.rmi.Remote;
 import java.rmi.RemoteException;
+import java.security.Key;
 import java.security.PublicKey;
 import java.util.List;
 
@@ -29,15 +30,6 @@ public interface RemoteVotingI extends Remote {
     ) throws RemoteException;
 
     /**
-     * Check if a voter has already voted.
-     */
-    boolean hasVoted(PublicKey voterPublicKey) throws RemoteException;
-
-    /* =======================
-       Blockchain
-       ======================= */
-
-    /**
      * Get the hash of the latest block.
      */
     byte[] getLatestBlockHash() throws RemoteException;
@@ -46,35 +38,34 @@ public interface RemoteVotingI extends Remote {
      * Request blocks starting from a known hash.
      */
     List<Block> getBlocksFrom(byte[] fromBlockHash) throws RemoteException;
-
+    
+    
+    void sync(List<Block> newBlocks)throws RemoteException;
     /**
      * Receive a block propagated by a peer.
      */
-    int submitBlock(Block block) throws RemoteException;
+    void submitBlock(Block block) throws RemoteException;
 
     /* =======================
        Peer / Consensus
        ======================= */
-
+    byte[] getAes(Key publicKey) throws RemoteException;
     /**
      * Notify peers of a new block.
      */
-    int broadcastBlock(Block block) throws RemoteException;
-
+    void broadcastBlock(Block block) throws RemoteException;
+    
+    
+    
+    public String[] getBlockHashes() throws RemoteException;
     /**
      * Simple chain preference check.
      */
-    boolean isMyChainLonger(int peerChainLength) throws RemoteException;
+    boolean isMyChainShorter(int peerChainLength) throws RemoteException;
 
     /* =======================
        Security / Handshake
        ======================= */
-
-    /**
-     * Exchange public keys.
-     */
-    PublicKey getNodePublicKey() throws RemoteException;
-
     /**
      * Establish encrypted session (AES key encrypted with node public key).
 

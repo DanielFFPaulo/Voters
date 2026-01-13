@@ -5,10 +5,10 @@
 package blockchained;
 
 import java.security.KeyPair;
-import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
-import java.util.Base64;
+import utils.SecurityUtils;
+import utils.Session;
 
 /**
  *
@@ -18,26 +18,20 @@ import java.util.Base64;
 public class Voter {
     private String name;
     private KeyPair keyPair;
-    private String publicKeyString;
     
-    public Voter(String name) throws NoSuchAlgorithmException {
+    public Voter(String name) throws NoSuchAlgorithmException, Exception {
         this.name = name;
-        this.keyPair = generateKeyPair();
-        this.publicKeyString = Base64.getEncoder()
-                                     .encodeToString(keyPair.getPublic().getEncoded());
+        this.keyPair = SecurityUtils.generateRSAKeyPair(2048);
     }
     
-    private KeyPair generateKeyPair() throws NoSuchAlgorithmException {
-        KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
-        keyGen.initialize(2048);
-        return keyGen.generateKeyPair();
-    }
-    
-    public Transaction castVote(String vote, String electionId) throws Exception {
-        return new Transaction(publicKeyString, vote, electionId, keyPair.getPrivate());
-    }
+public Transaction castVote(String vote, String electionId) throws Exception {
+    // Use the session key pair for both signing and public key
+    Session.Keys sKeys = Session.get();
+    return new Transaction(sKeys.publicKey, vote, electionId, sKeys.privateKey);
+}
+
     
     public String getName() { return name; }
     public PublicKey getPublicKey() { return keyPair.getPublic(); }
-    public String getPublicKeyString() { return publicKeyString; }
+    
 }

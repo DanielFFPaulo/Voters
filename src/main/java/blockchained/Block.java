@@ -4,6 +4,7 @@
  */
 package blockchained;
 
+import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -15,9 +16,8 @@ import java.util.List;
  *
  * @author Acer
  */
-public class Block {
+public class Block implements Serializable{
     private int blockID;
-    private long timestamp;
     private String previousHash;
     private String merkleRoot;
     private String currentHash;
@@ -31,8 +31,6 @@ public class Block {
         this.previousHash = previousHash;
         System.out.println("Making Transacitions");
         this.transactions = new ArrayList<>(transactions);
-        System.out.println("Making timestamp");
-        this.timestamp = System.currentTimeMillis();
         System.out.println("Making merkle root");
         this.merkleRoot = calculateMerkleRoot();
         System.out.println("Making nonce");
@@ -46,7 +44,7 @@ public class Block {
 
     public String calculateHash() {
         try {
-            String data = blockID + timestamp + previousHash + merkleRoot + nonce +transactionsToString();
+            String data = blockID + previousHash + merkleRoot + nonce +transactionsToString();
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             byte[] hash = digest.digest(data.getBytes(StandardCharsets.UTF_8));
             return bytesToHex(hash);
@@ -132,7 +130,6 @@ public class Block {
                ", hash='" + hashPreview + "', " +
                "previousHash='" + prevHashPreview + "', " +
                "transactions=" + transactions.size() +
-               ", time=" + new Date(timestamp) +
                '}';
     }
     

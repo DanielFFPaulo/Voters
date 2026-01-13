@@ -7,18 +7,23 @@ package RemoteNodes;
 import blockchained.Block;
 import blockchained.Blockchain;
 import blockchained.Election;
+import blockchained.Transaction;
+import blockchained.Voter;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.rmi.RemoteException;
 import java.rmi.server.RemoteServer;
 import java.rmi.server.ServerNotActiveException;
 import java.rmi.server.UnicastRemoteObject;
+import java.security.Key;
+import java.security.KeyPair;
 import java.security.PublicKey;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 import utils.RMI;
+import utils.SecurityUtils;
 
 /**
  *
@@ -34,8 +39,10 @@ public class RemoteVotingObject extends UnicastRemoteObject implements RemoteVot
     Set<String> transactions;
     NodeListener listener;
     public MinerDistributed miner = new MinerDistributed();
+    private Key aes;
+    private KeyPair rsa;
 
-    public RemoteVotingObject(int port, NodeListener listener) throws RemoteException {
+    public RemoteVotingObject(int port, NodeListener listener) throws RemoteException, InterruptedException, Exception {
         super(port);
         
         
@@ -60,47 +67,84 @@ public class RemoteVotingObject extends UnicastRemoteObject implements RemoteVot
                 listener.onException(ex, "Start remote Object");
             }
         }
+        
+        blockchain = new Blockchain(3);
+        eleicao = new Election("election001", "Class president");
+        blockchain.createElection(eleicao);
+        
+        aes = SecurityUtils.generateAESKey(128);
+        rsa = SecurityUtils.generateRSAKeyPair(2048);
+        
+        
+        
+        
 
     }
 
     @Override
-    public int vote(byte[] encryptedVote, byte[] voterSignature, PublicKey voterPublicKey) throws RemoteException {
-        throw new UnsupportedOperationException("Not supported yet."); // Generated from nbfs://nbhost/SystemFileSystem/Templates/Classes/Code/GeneratedMethodBody
-    }
-
-    @Override
-    public boolean hasVoted(PublicKey voterPublicKey) throws RemoteException {
-        throw new UnsupportedOperationException("Not supported yet."); // Generated from nbfs://nbhost/SystemFileSystem/Templates/Classes/Code/GeneratedMethodBody
+    public int vote(byte[] voter, byte[] partido, PublicKey voterPublicKey) throws RemoteException {
+        try {
+            System.out.println("Decrypting");
+            String username  = new String(SecurityUtils.decrypt(voter, aes));
+            Voter user = new Voter(username);
+            System.out.println("Decrypting too");
+            String truePartido = new String(SecurityUtils.decrypt(partido, aes));
+            
+            System.out.println("Voting");
+            Transaction voto = user.castVote(truePartido, eleicao.getElectionId());
+            blockchain.addTransaction(voto, voterPublicKey);
+            blockchain.minePendingTransactions();
+            System.out.println(blockchain.getPendingTransactionCount());
+            
+            
+            
+        } catch (IllegalArgumentException ex) {
+            System.out.println("aaaaaa");
+            return 400;} catch (Exception ex) {
+            System.getLogger(RemoteVotingObject.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+            return 500;
+        }
+            
+        broadcastBlock(blockchain.getLatestBlock());
+            
+        
+        
+        return 200;
     }
 
     @Override
     public byte[] getLatestBlockHash() throws RemoteException {
-        throw new UnsupportedOperationException("Not supported yet."); // Generated from nbfs://nbhost/SystemFileSystem/Templates/Classes/Code/GeneratedMethodBody
+        return blockchain.getLatestBlock().getCurrentHash().getBytes();
     }
 
     @Override
     public List<Block> getBlocksFrom(byte[] fromBlockHash) throws RemoteException {
-        throw new UnsupportedOperationException("Not supported yet."); // Generated from nbfs://nbhost/SystemFileSystem/Templates/Classes/Code/GeneratedMethodBody
+        return blockchain.getBlocksFrom(new String(fromBlockHash));
     }
 
     @Override
-    public int submitBlock(Block block) throws RemoteException {
-        throw new UnsupportedOperationException("Not supported yet."); // Generated from nbfs://nbhost/SystemFileSystem/Templates/Classes/Code/GeneratedMethodBody
+    public void submitBlock(Block block) throws RemoteException {
+        if(block.getCurrentHash().equals(blockchain.getLatestBlock().getCurrentHash())){
+            return;
+        }
+        
+        
+        
+        blockchain.addBlock(block);
+        
+        
     }
 
     @Override
-    public int broadcastBlock(Block block) throws RemoteException {
-        throw new UnsupportedOperationException("Not supported yet."); // Generated from nbfs://nbhost/SystemFileSystem/Templates/Classes/Code/GeneratedMethodBody
+    public void broadcastBlock(Block block) throws RemoteException {
+        for (RemoteVotingI node : network) {
+            node.submitBlock(block);
+        }
     }
 
     @Override
-    public boolean isMyChainLonger(int peerChainLength) throws RemoteException {
-        return this.getBlockchainHeight() >= peerChainLength;
-    }
-
-    @Override
-    public PublicKey getNodePublicKey() throws RemoteException {
-        throw new UnsupportedOperationException("Not supported yet."); // Generated from nbfs://nbhost/SystemFileSystem/Templates/Classes/Code/GeneratedMethodBody
+    public boolean isMyChainShorter(int peerChainLength) throws RemoteException {
+        return this.getBlockchainHeight() < peerChainLength;
     }
 
     @Override
@@ -108,6 +152,15 @@ public class RemoteVotingObject extends UnicastRemoteObject implements RemoteVot
         return blockchain.getHeight();
     }
 
+    
+    
+    
+    
+    
+    
+    
+    
+    
     //already Done 
     @Override
     public String getAdress() throws RemoteException {
@@ -121,10 +174,19 @@ public class RemoteVotingObject extends UnicastRemoteObject implements RemoteVot
         }
 
         network.add(node);
-        this.transactions.addAll(node.getTransactions());
-
+        //this.transactions.addAll(node.getTransactions());
+        if(this.isMyChainShorter(node.getBlockchainHeight())){
+            
+            blockchain.sync(node.getBlocksFrom(getLatestBlockHash()));
+        }else{
+            byte[] toFind = node.getLatestBlockHash();
+            node.sync(this.getBlocksFrom(toFind));
+        }
+        
+        
+        
+        
         node.addNode(this);
-
         for (RemoteVotingI neighbors : network) {
             neighbors.addNode(node);
         }
@@ -146,6 +208,13 @@ public class RemoteVotingObject extends UnicastRemoteObject implements RemoteVot
     public List<RemoteVotingI> getNetwork() throws RemoteException {
         return new ArrayList<>(network);
     }
+    
+    @Override
+    public String[] getBlockHashes() throws RemoteException{
+        return blockchain.getBlockHashes();
+    }
+    
+    
 
     @Override
     public void addTransaction(String data) throws RemoteException {
@@ -211,6 +280,20 @@ public class RemoteVotingObject extends UnicastRemoteObject implements RemoteVot
     @Override
     public String getHash() throws RemoteException {
         return MinerDistributed.getHash(miner.message+miner.getNonce());
+    }
+
+    @Override
+    public byte[] getAes(Key publicKey) throws RemoteException {
+        try {
+            return SecurityUtils.encrypt(aes.getEncoded(), publicKey);
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
+    @Override
+    public void sync(List<Block> newBlocks) throws RemoteException {
+        blockchain.sync(newBlocks);
     }
 
 }

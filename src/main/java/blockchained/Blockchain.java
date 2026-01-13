@@ -19,33 +19,70 @@ import utils.Session;
  * @author Acer
  */
 public class Blockchain {
+
     private List<Block> chain;
     private List<Transaction> pendingTransactions;
     private int difficulty;
     private Map<String, Set<String>> voterRegistry; // publicKey -> set of electionIds voted in
     private Map<String, Election> elections;
-    
+
     public Blockchain(int difficulty) throws InterruptedException {
         this.chain = new ArrayList<>();
         this.pendingTransactions = new ArrayList<>();
         this.difficulty = difficulty;
         this.voterRegistry = new HashMap<>();
         this.elections = new HashMap<>();
-        
-        
+
         chain.add(createGenesisBlock());
     }
-    
+
     private Block createGenesisBlock() throws InterruptedException {
-        return new Block(0, "0", new ArrayList<>());
-        
+        return new Block(difficulty, "0", new ArrayList<>());
+
     }
-    
+
+    public String[] getBlockHashes() {
+        String[] hashes = new String[chain.size()];
+        for (int i = 0; i < chain.size(); i++) {
+            hashes[i] = chain.get(i).getCurrentHash();
+        }
+        return hashes;
+    }
+
     public Block getLatestBlock() {
         return chain.get(chain.size() - 1);
     }
-    
-    
+
+    public void sync(List<Block> newBlocks) {
+        if (newBlocks.isEmpty()) {
+            return;
+        }
+
+        Block start = newBlocks.get(0);
+        int index = -1;
+
+        // Find index by hash, not object reference
+        for (int i = 0; i < chain.size(); i++) {
+            if (chain.get(i).getCurrentHash().equals(start.getCurrentHash())) {
+                index = i;
+                break;
+            }
+        }
+
+        // Remove old blocks from index onward
+        if (index != -1) {
+            chain.subList(index, chain.size()).clear();
+        }
+
+        // Add new blocks
+        chain.addAll(newBlocks);
+
+        if (!isChainValid()) {
+            throw new IllegalStateException("Blockchain invalid after sync!");
+        }
+
+    }
+
     public void addTransaction(Transaction transaction, PublicKey publicKey) throws Exception {
 
         // 1) BLOQUEIO CENTRAL: sem login não há voto
@@ -58,7 +95,7 @@ public class Blockchain {
 
         String sessionPub = Base64.getEncoder().encodeToString(sKeys.publicKey.getEncoded());
 
-        if (!transaction.getPublicVoterKey().equals(sessionPub)) {
+        if (!transaction.getPublicVoterKey().equals(sKeys.publicKey)) {
             throw new IllegalStateException("A chave do voto não corresponde ao utilizador autenticado.");
         }
 
@@ -68,7 +105,7 @@ public class Blockchain {
         }
 
         // 4) Check for double voting
-        if (hasVoterVoted(transaction.getPublicVoterKey(), transaction.getElectionId())) {
+        if (hasVoterVoted(transaction.getPublicVoterKey().toString(), transaction.getElectionId())) {
             throw new IllegalArgumentException("Voter has already voted in this election");
         }
 
@@ -76,62 +113,69 @@ public class Blockchain {
         pendingTransactions.add(transaction);
         System.out.println("Transaction added to pending pool: " + transaction);
     }
-    
-    
-    
+
     public void minePendingTransactions() throws InterruptedException {
         if (pendingTransactions.isEmpty()) {
             System.out.println("No transactions to mine");
             return;
         }
-        
+
         Block block = new Block(chain.size(), getLatestBlock().getCurrentHash(), pendingTransactions);
-        
+
         chain.add(block);
-        
+
         // Update voter registry
         for (Transaction tx : pendingTransactions) {
-            voterRegistry.computeIfAbsent(tx.getPublicVoterKey(), k -> new HashSet<>())
-                        .add(tx.getElectionId());
+            voterRegistry.computeIfAbsent(tx.getPublicVoterKey().toString(), k -> new HashSet<>())
+                    .add(tx.getElectionId());
         }
-        
+
         pendingTransactions = new ArrayList<>();
+        
+    }
+    public void addBlock(Block block){
+        chain.add(block);
     }
     
-    private boolean isTransactionValid(Transaction transaction, PublicKey publicKey) 
+
+    private boolean isTransactionValid(Transaction transaction, PublicKey publicKey)
             throws Exception {
         // Verify signature
         if (!transaction.verifySignature(publicKey)) {
             System.out.println("Invalid signature");
             return false;
         }
-        
+
         // Check if election exists and is active
         Election election = elections.get(transaction.getElectionId());
         if (election == null || !election.isActive()) {
             System.out.println("Election not active");
             return false;
         }
-        
+
         return true;
     }
-    
+
     private boolean hasVoterVoted(String voterPublicKey, String electionId) {
         Set<String> votedElections = voterRegistry.get(voterPublicKey);
-        return votedElections != null && votedElections.contains(electionId);
+        boolean hasVoted = votedElections != null && votedElections.contains(electionId);
+        if(hasVoted){
+            System.out.println("already voted");
+        }
+        return hasVoted;
     }
-    
+
     public boolean isChainValid() {
         for (int i = 1; i < chain.size(); i++) {
             Block currentBlock = chain.get(i);
             Block previousBlock = chain.get(i - 1);
-            
+
             // Check if current block hash is valid
             if (!currentBlock.getCurrentHash().equals(currentBlock.calculateHash())) {
                 System.out.println("Block " + i + " hash is invalid");
                 return false;
             }
-            
+
             // Check if blocks are properly linked
             if (!currentBlock.getPreviousHash().equals(previousBlock.getCurrentHash())) {
                 System.out.println("Block " + i + " is not properly linked");
@@ -140,10 +184,10 @@ public class Blockchain {
         }
         return true;
     }
-    
-        public Map<String, Integer> tallyVotes(String electionId) {
+
+    public Map<String, Integer> tallyVotes(String electionId) {
         Map<String, Integer> results = new HashMap<>();
-        
+
         for (Block block : chain) {
             for (Transaction tx : block.getTransactions()) {
                 if (tx.getElectionId().equals(electionId)) {
@@ -153,24 +197,28 @@ public class Blockchain {
                 }
             }
         }
-        
+
         return results;
     }
-    
+
     private String decryptVote(String encryptedVote) {
         // Simple decoding for demo - in production use real decryption
         return new String(Base64.getDecoder().decode(encryptedVote));
     }
-    
+
+    public void createElection(Election eleicao) {
+        createElection(eleicao.getElectionId(), eleicao.getTitle());
+    }
+
     public void createElection(String electionId, String title) {
         elections.put(electionId, new Election(electionId, title));
         System.out.println("Election created: " + title);
     }
-    
-    public int getHeight(){
+
+    public int getHeight() {
         return chain.size();
-    } 
-    
+    }
+
     public void printBlockchain() {
         System.out.println("\n=== BLOCKCHAIN ===");
         for (Block block : chain) {
@@ -181,9 +229,23 @@ public class Blockchain {
         }
         System.out.println("==================\n");
     }
-    
+
     public int getPendingTransactionCount() {
         return pendingTransactions.size();
     }
+
+public List<Block> getBlocksFrom(String desiredHash) {
+    List<Block> list = new ArrayList<>();
     
+    for (int i = 0; i < chain.size(); i++) {
+        if (chain.get(i).getCurrentHash().equals(desiredHash)) {
+            // Create a new ArrayList from the subList
+            list = new ArrayList<>(chain.subList(i, chain.size()));
+            break;
+        }
+    }
+    
+    return list;
+}
+
 }
