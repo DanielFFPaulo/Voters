@@ -12,26 +12,26 @@ import java.security.PublicKey;
  *
  * @author Sofia Vedor
  */
-public class Session {
+public class Session { // Classe Session: mantém o estado da sessão atual (quem está autenticado)
 
-    public static class Keys {
-        public final String username;
-        public final PublicKey publicKey;
-        public final PrivateKey privateKey;
-        public final SecretKey aesKey;
+    public static class Keys { // Classe interna que agrupa todas as chaves associadas a um utilizador autenticado
+        public final String username; // Nome do utilizador autenticado
+        public final PublicKey publicKey; // Chave pública RSA do utilizador
+        public final PrivateKey privateKey; // Chave privada RSA do utilizador (já decifrada)
+        public final SecretKey aesKey; // Chave simétrica AES associada ao utilizador (ex.: para cifrar dados)
 
-        public Keys(String username, PublicKey publicKey, PrivateKey privateKey, SecretKey aesKey) {
-            this.username = username;
-            this.publicKey = publicKey;
-            this.privateKey = privateKey;
-            this.aesKey = aesKey;
-        }
-    }
+        public Keys(String username, PublicKey publicKey, PrivateKey privateKey, SecretKey aesKey) { // Construtor da classe Keys
+            this.username = username; // Guarda o nome do utilizador
+            this.publicKey = publicKey; // Guarda a chave pública
+            this.privateKey = privateKey; // Guarda a chave privada
+            this.aesKey = aesKey; // Guarda a chave AES
+        } // Fim do construtor
+    } // Fim da classe interna Keys
 
-    private static Keys current;
+    private static Keys current; // Referência estática para as chaves da sessão atual (null se ninguém estiver autenticado)
 
-    public static void set(Keys keys) { current = keys; }
-    public static Keys get() { return current; }
-    public static boolean isLoggedIn() { return current != null; }
-    public static void logout() { current = null; }
-}
+    public static void set(Keys keys) { current = keys; } // Define a sessão atual (login)
+    public static Keys get() { return current; } // Devolve as chaves da sessão atual (ou null se não houver login)
+    public static boolean isLoggedIn() { return current != null; } // Indica se existe um utilizador autenticado
+    public static void logout() { current = null; } // Termina a sessão (remove as chaves da memória)
+} // Fim da classe Session
