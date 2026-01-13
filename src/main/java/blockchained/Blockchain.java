@@ -12,6 +12,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import utils.Session;
 
 /**
  *
@@ -46,17 +47,32 @@ public class Blockchain {
     
     
     public void addTransaction(Transaction transaction, PublicKey publicKey) throws Exception {
-        // Validate transaction
+
+        // 1) BLOQUEIO CENTRAL: sem login não há voto
+        if (!Session.isLoggedIn()) {
+            throw new IllegalStateException("Tem de fazer login antes de votar.");
+        }
+
+        // 2) Garantir que o voto pertence ao utilizador autenticado (recomendado)
+        Session.Keys sKeys = Session.get();
+
+        String sessionPub = Base64.getEncoder().encodeToString(sKeys.publicKey.getEncoded());
+
+        if (!transaction.getPublicVoterKey().equals(sessionPub)) {
+            throw new IllegalStateException("A chave do voto não corresponde ao utilizador autenticado.");
+        }
+
+        // 3) Validate transaction
         if (!isTransactionValid(transaction, publicKey)) {
             throw new IllegalArgumentException("Invalid transaction");
         }
-        
-        // Check for double voting
+
+        // 4) Check for double voting
         if (hasVoterVoted(transaction.getPublicVoterKey(), transaction.getElectionId())) {
             throw new IllegalArgumentException("Voter has already voted in this election");
         }
-        
-        // Add to pending pool
+
+        // 5) Add to pending pool
         pendingTransactions.add(transaction);
         System.out.println("Transaction added to pending pool: " + transaction);
     }

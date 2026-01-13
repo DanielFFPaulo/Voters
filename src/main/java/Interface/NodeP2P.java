@@ -3,6 +3,7 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/GUIForms/JFrame.java to edit this template
  */
 package Interface;
+
 import RemoteNodes.MinerListener;
 import RemoteNodes.NodeListener;
 import RemoteNodes.RemoteVotingI;
@@ -24,25 +25,35 @@ import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 import utils.GuiUtils;
 import utils.RMI;
+import utils.Session;
+
 /**
  *
  * @author Acer
  */
 public class NodeP2P extends javax.swing.JFrame implements NodeListener, MinerListener {
-    
+
     private static final java.util.logging.Logger logger = java.util.logging.Logger.getLogger(NodeP2P.class.getName());
     RemoteVotingObject myremoteObject;
+
     /**
      * Creates new form Node
      */
     public NodeP2P() {
         initComponents();
+
         txtServerListeningObjectName.setText(RemoteVotingObject.REMOTE_OBJECT_NAME);
-        setRandomPosition();
-        myremoteObject.miner.addListener(this);
+
+        setRandomPosition(); // aqui é onde provavelmente crias o myremoteObject
+
+        if (myremoteObject != null && myremoteObject.miner != null) {
+            myremoteObject.miner.addListener(this);
+        }
+
+        updateUserInfo();
     }
-    
-        private void setRandomPosition() {
+
+    private void setRandomPosition() {
         //:::: Mover a janela para uma posição aleatório
         this.setSize(845, 595);
         // Obter a resolução do ecrã
@@ -58,6 +69,32 @@ public class NodeP2P extends javax.swing.JFrame implements NodeListener, MinerLi
         btConnectActionPerformed(null);
     }
 
+    private void updateUserInfo() {
+        if (!Session.isLoggedIn()) {
+            lblUserInfo.setText("Não autenticado");
+            return;
+        }
+
+        Session.Keys k = Session.get();
+        String voterId = shortId(k.publicKey.getEncoded());
+
+        lblUserInfo.setText("User: " + k.username + " | VoterID: " + voterId);
+    }
+
+    private static String shortId(byte[] data) {
+        try {
+            java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] h = md.digest(data);
+
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < 8; i++) {
+                sb.append(String.format("%02x", h[i]));
+            }
+            return sb.toString();
+        } catch (Exception e) {
+            return "erro";
+        }
+    }
 
     /**
      * This method is called from within the constructor to initialize the form.
@@ -93,6 +130,7 @@ public class NodeP2P extends javax.swing.JFrame implements NodeListener, MinerLi
         partidosOptions = new javax.swing.JComboBox<>();
         jButton3 = new javax.swing.JButton();
         jLabel4 = new javax.swing.JLabel();
+        lblUserInfo = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 
@@ -263,6 +301,8 @@ public class NodeP2P extends javax.swing.JFrame implements NodeListener, MinerLi
 
         jLabel4.setText("jLabel1");
 
+        lblUserInfo.setText("Não Autenticado");
+
         javax.swing.GroupLayout jPanel7Layout = new javax.swing.GroupLayout(jPanel7);
         jPanel7.setLayout(jPanel7Layout);
         jPanel7Layout.setHorizontalGroup(
@@ -278,23 +318,28 @@ public class NodeP2P extends javax.swing.JFrame implements NodeListener, MinerLi
                     .addGroup(jPanel7Layout.createSequentialGroup()
                         .addGroup(jPanel7Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                             .addComponent(userNameField)
-                            .addComponent(partidosOptions, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                        .addGap(0, 0, Short.MAX_VALUE)))
+                            .addComponent(partidosOptions, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addComponent(lblUserInfo, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                        .addGap(0, 429, Short.MAX_VALUE)))
                 .addContainerGap())
         );
         jPanel7Layout.setVerticalGroup(
             jPanel7Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel7Layout.createSequentialGroup()
-                .addGap(42, 42, 42)
+                .addGap(14, 14, 14)
+                .addComponent(lblUserInfo)
+                .addGap(27, 27, 27)
                 .addComponent(userNameField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(53, 53, 53)
+                .addGap(38, 38, 38)
                 .addComponent(partidosOptions, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 269, Short.MAX_VALUE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 275, Short.MAX_VALUE)
                 .addComponent(jButton3, javax.swing.GroupLayout.PREFERRED_SIZE, 84, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(jLabel4)
                 .addGap(37, 37, 37))
         );
+
+        lblUserInfo.getAccessibleContext().setAccessibleName("");
 
         tpMain.addTab("Vote", jPanel7);
 
@@ -381,6 +426,7 @@ public class NodeP2P extends javax.swing.JFrame implements NodeListener, MinerLi
     private javax.swing.JScrollPane jScrollPane2;
     private javax.swing.JScrollPane jScrollPane3;
     private javax.swing.JScrollPane jScrollPane4;
+    private javax.swing.JLabel lblUserInfo;
     private javax.swing.JComboBox<String> partidosOptions;
     private javax.swing.JPanel pnNetwork;
     private javax.swing.JPanel pnServer;
@@ -476,4 +522,5 @@ public class NodeP2P extends javax.swing.JFrame implements NodeListener, MinerLi
             }
         });*/
     }
+
 }
