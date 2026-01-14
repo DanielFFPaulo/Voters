@@ -33,6 +33,7 @@ public class NodeP2P extends javax.swing.JFrame implements NodeListener, MinerLi
     RemoteVotingObject myremoteObject;
     private Key aes;
     private KeyPair rsa;
+
     /**
      * Creates new form Node
      */
@@ -91,8 +92,6 @@ public class NodeP2P extends javax.swing.JFrame implements NodeListener, MinerLi
             return;
             // Sai do método, pois não há mais nada a atualizar
         }
-        
-        
 
         Session.Keys k = Session.get();
         // Obtém as chaves (e informação) do utilizador atualmente autenticado a partir da sessão
@@ -424,19 +423,83 @@ public class NodeP2P extends javax.swing.JFrame implements NodeListener, MinerLi
      */
     private void voteBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_voteBtnActionPerformed
         try {
-            // encripta os dados antes de enivar para o servidor e usa a chava publica da conta do utilizador que fez login
-            byte[] voterEncrypted = SecurityUtils.encrypt(userNameField.getText().getBytes(), aes);
-            byte[] partidoEncrypted = SecurityUtils.encrypt(((String)partidosOptions.getSelectedItem()).getBytes(), aes);
+            // 0) Garantia extra (opcional, mas boa)
+            if (!Session.isLoggedIn()) {
+                javax.swing.JOptionPane.showMessageDialog(
+                        this,
+                        "Tem de fazer login antes de votar.",
+                        "Aviso",
+                        javax.swing.JOptionPane.WARNING_MESSAGE
+                );
+                return;
+            }
+
+            // 1) Encriptar dados
+            byte[] voterEncrypted = SecurityUtils.encrypt(
+                    userNameField.getText().getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                    aes
+            );
+
+            byte[] partidoEncrypted = SecurityUtils.encrypt(
+                    ((String) partidosOptions.getSelectedItem()).getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                    aes
+            );
+
+            // 2) Chaves da sessão
+
             Session.Keys sKeys = Session.get();
+
+            // 3) Enviar voto
             myremoteObject.vote(voterEncrypted, partidoEncrypted, sKeys.publicKey);
-        } catch (RemoteException ex) {
-            System.getLogger(NodeP2P.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+
+            // 4) Mensagem de confirmação
+            javax.swing.JOptionPane.showMessageDialog(
+                    this,
+                    "Voto registado com sucesso! A sessão vai terminar.",
+                    "Confirmação",
+                    javax.swing.JOptionPane.INFORMATION_MESSAGE
+            );
+
+            // 5) Logout automático
+            Session.logout();
+
+            // abrir login
+            Login login = new Login();
+            login.setLocationRelativeTo(null);
+            login.setVisible(true);
+
+// fechar a janela atual (a de votar)
+            this.dispose();
+
+            // 6) Atualizar UI (ajusta ao teu projeto)
+            userNameField.setText("");
+            partidosOptions.setSelectedIndex(0);
+
+            // Se tiveres campos/botões que dependem de login:
+            // voteBtn.setEnabled(false);
+            // Se quiseres voltar ao ecrã de login:
+            // new LoginFrame().setVisible(true);
+            // this.dispose();
+        } catch (java.rmi.RemoteException ex) {
+            javax.swing.JOptionPane.showMessageDialog(
+                    this,
+                    "Erro de comunicação com o servidor. Tente novamente.",
+                    "Erro",
+                    javax.swing.JOptionPane.ERROR_MESSAGE
+            );
+            System.getLogger(NodeP2P.class.getName())
+                    .log(System.Logger.Level.ERROR, "RemoteException ao votar", ex);
+
         } catch (Exception ex) {
-            System.getLogger(NodeP2P.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+            javax.swing.JOptionPane.showMessageDialog(
+                    this,
+                    "Não foi possível registar o voto: " + ex.getMessage(),
+                    "Erro",
+                    javax.swing.JOptionPane.ERROR_MESSAGE
+            );
+            System.getLogger(NodeP2P.class.getName())
+                    .log(System.Logger.Level.ERROR, "Erro ao votar", ex);
         }
-        
-        
-        
     }//GEN-LAST:event_voteBtnActionPerformed
 
     
@@ -465,12 +528,12 @@ public class NodeP2P extends javax.swing.JFrame implements NodeListener, MinerLi
             //:::::::: GUI  ::::::::::::::::
             //this.setTitle(RMI.getRemoteName(port, name));
             this.txtNodeAddress.setText(RMI.getRemoteName(port, name));
-            
+
             rsa = SecurityUtils.generateRSAKeyPair(2048);
             byte[] byteAes = myremoteObject.getAes(rsa.getPublic());
             byteAes = SecurityUtils.decrypt(byteAes, rsa.getPrivate());
-            aes =SecurityUtils.getAESKey(byteAes);
-            
+            aes = SecurityUtils.getAESKey(byteAes);
+
         } catch (Exception ex) {
             onException(ex, "Starting server");
             Logger.getLogger(NodeP2P.class.getName()).log(Level.SEVERE, null, ex);
@@ -494,7 +557,7 @@ public class NodeP2P extends javax.swing.JFrame implements NodeListener, MinerLi
         try {
             hashesList.setText("");
             for (String object : myremoteObject.getBlockHashes()) {
-                hashesList.setText(hashesList.getText()+ object + "\n");
+                hashesList.setText(hashesList.getText() + object + "\n");
             }
         } catch (RemoteException ex) {
             System.getLogger(NodeP2P.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);

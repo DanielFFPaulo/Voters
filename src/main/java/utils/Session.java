@@ -31,7 +31,12 @@ public class Session { // Classe Session: mantém o estado da sessão atual (que
     private static Keys current; // Referência estática para as chaves da sessão atual (null se ninguém estiver autenticado)
 
     public static void set(Keys keys) { current = keys; } // Define a sessão atual (login)
-    public static Keys get() { return current; } // Devolve as chaves da sessão atual (ou null se não houver login)
+    public static Keys get() {
+    if (current == null) {
+        throw new IllegalStateException("Sem sessão ativa.");
+    }
+    return current;
+}
     public static boolean isLoggedIn() { return current != null; } // Indica se existe um utilizador autenticado
     public static void logout() { current = null; } // Termina a sessão (remove as chaves da memória)
 } // Fim da classe Session
