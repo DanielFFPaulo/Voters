@@ -37,17 +37,30 @@ public class NodeP2P extends javax.swing.JFrame implements NodeListener, MinerLi
      * Creates new form Node
      */
     public NodeP2P() {
+
         initComponents();
+        // Inicializa todos os componentes gráficos (Swing)
+        // Método normalmente gerado automaticamente pelo GUI Builder
 
         txtServerListeningObjectName.setText(RemoteVotingObject.REMOTE_OBJECT_NAME);
+        // Define no campo de texto o nome do objeto remoto RMI
+        // REMOTE_OBJECT_NAME é uma constante usada para identificar o serviço remoto
 
         setRandomPosition(); // aqui é onde provavelmente crias o myremoteObject
+        // Define uma posição aleatória para a janela (ou nó)
+        // Comentário indica que este método também pode inicializar/criar o objeto remoto (myremoteObject)
 
         if (myremoteObject != null && myremoteObject.miner != null) {
+            // Verifica se o objeto remoto existe e se o miner associado foi criado
+
             myremoteObject.miner.addListener(this);
+            // Regista esta janela (NodeP2P) como listener do miner
+            // Assim, a UI será notificada de eventos do miner (ex.: novos blocos, estado, etc.)
         }
 
         updateUserInfo();
+        // Atualiza a interface com informação do utilizador atualmente autenticado
+        // (ex.: username, chaves, estado da sessão)
     }
 
     private void setRandomPosition() {
@@ -67,18 +80,33 @@ public class NodeP2P extends javax.swing.JFrame implements NodeListener, MinerLi
     }
 
     private void updateUserInfo() {
+        // Atualiza a informação do utilizador mostrada na interface gráfica
+
         if (!Session.isLoggedIn()) {
+            // Verifica se não existe nenhum utilizador autenticado na sessão
+
             lblUserInfo.setText("Não autenticado");
+            // Mostra na interface que não há utilizador autenticado
+
             return;
+            // Sai do método, pois não há mais nada a atualizar
         }
         
         
 
         Session.Keys k = Session.get();
+        // Obtém as chaves (e informação) do utilizador atualmente autenticado a partir da sessão
+
         String voterId = shortId(k.publicKey.getEncoded());
         userNameField.setText(k.username);
         userNameField.setEditable(false);
+        // Gera um identificador curto (VoterID) a partir da chave pública do utilizador
+        // Normalmente isto é feito aplicando um hash e encurtando o resultado
+        // A chave pública garante que o VoterID é único e verificável
         lblUserInfo.setText("User: " + k.username + " | VoterID: " + voterId);
+        // Atualiza o rótulo da interface com:
+        // - o nome do utilizador
+        // - o identificador de voto (VoterID) derivado da chave pública
     }
 
     private static String shortId(byte[] data) {

@@ -133,39 +133,77 @@ public class Login extends javax.swing.JFrame {
 
     private void jButton2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton2ActionPerformed
         String user = jTextField1.getText().trim();
+        // Lê o texto do campo jTextField1 (nome de utilizador)
+        // trim() remove espaços em branco no início e no fim
+
         char[] pass = jPasswordField2.getText().toCharArray();
+        // Lê o conteúdo do campo de password
+        // Converte a String para um array de char[] (mais apropriado para passwords do que String)
 
         try {
+            // Tenta criar um novo utilizador com os dados fornecidos
+
             KeyStoreService.createUser(Paths.get("data_keys"), user, pass);
+            // Chama o serviço de criação de utilizador
+            // - "data_keys" é a pasta onde os ficheiros .pub, .priv e .sim serão guardados
+            // - user é o nome do utilizador
+            // - pass é a password usada para proteger a chave privada
+
             jTextField4.setText("Utilizador criado com sucesso: " + user);
+            // Se tudo correr bem, mostra uma mensagem de sucesso no campo jTextField4
+
         } catch (Exception e) {
+            // Apanha qualquer exceção ocorrida durante a criação do utilizador
+
             jTextField4.setText("Erro ao criar utilizador: " + e.getMessage());
+            // Mostra uma mensagem de erro com a descrição da exceção
         }
     }//GEN-LAST:event_jButton2ActionPerformed
 
     private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton1ActionPerformed
         String user = jTextField1.getText().trim();
-        char[] pass = jPasswordField2.getPassword(); 
+        // Lê o nome de utilizador do campo de texto
+        // trim() remove espaços em branco no início e no fim
+
+        char[] pass = jPasswordField2.getPassword();
+        // Lê a password do campo de password
+        // getPassword() devolve char[] (mais seguro do que usar String)
 
         try {
             java.nio.file.Path keysFolder
                     = java.nio.file.Paths.get(System.getProperty("user.dir"), "data_keys");
+            // Constrói o caminho absoluto para a pasta "data_keys"
+            // user.dir corresponde ao diretório atual da aplicação
 
             Session.Keys keys = KeyStoreService.login(keysFolder, user, pass);
-
-
+            // Tenta autenticar o utilizador:
+            // - valida a password
+            // - decifra a chave privada
+            // - recupera a chave AES
+            // - guarda as chaves na sessão
 
             jTextField4.setText("Login efetuado com sucesso.");
+            // Mostra mensagem de sucesso ao utilizador
 
             // abrir a janela principal (NodeP2P)
             new NodeP2P().setVisible(true);
+            // Cria e mostra a janela principal da aplicação
+
             this.dispose();
+            // Fecha a janela de login atual
 
         } catch (Exception e) {
+            // Captura qualquer erro ocorrido durante o processo de login
+
             jTextField4.setText("Login falhou: " + e.getMessage());
+            // Mostra mensagem de erro ao utilizador
+
         } finally {
-            //  limpar password da memória
+            // Executado sempre, independentemente de sucesso ou falha
+
+            // limpar password da memória
             java.util.Arrays.fill(pass, '\0');
+            // Sobrescreve o array da password para reduzir exposição em memória
         }
     }//GEN-LAST:event_jButton1ActionPerformed
 
