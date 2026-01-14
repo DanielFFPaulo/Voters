@@ -413,8 +413,18 @@ public class NodeP2P extends javax.swing.JFrame implements NodeListener, MinerLi
         pack();
     }// </editor-fold>//GEN-END:initComponents
 
+    
+    
+    /**
+     * 
+     * criar um bloco com o voto com o nome do eleitor e em quem ele votou
+     * nao é possivel criar o mesmo registo duas vezes
+     * 
+     * @param evt 
+     */
     private void voteBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_voteBtnActionPerformed
         try {
+            // encripta os dados antes de enivar para o servidor e usa a chava publica da conta do utilizador que fez login
             byte[] voterEncrypted = SecurityUtils.encrypt(userNameField.getText().getBytes(), aes);
             byte[] partidoEncrypted = SecurityUtils.encrypt(((String)partidosOptions.getSelectedItem()).getBytes(), aes);
             Session.Keys sKeys = Session.get();
@@ -429,10 +439,22 @@ public class NodeP2P extends javax.swing.JFrame implements NodeListener, MinerLi
         
     }//GEN-LAST:event_voteBtnActionPerformed
 
+    
+    
+    /**
+     * combo box dos partidos
+     * @param evt 
+     */
     private void partidosOptionsActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_partidosOptionsActionPerformed
         // TODO add your handling code here:
     }//GEN-LAST:event_partidosOptionsActionPerformed
 
+    
+    
+    /**
+     * Inicia o servidor e estabelece uma conexao segura
+     * @param evt 
+     */
     private void btStartServerActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btStartServerActionPerformed
         try {
             //:::::::::: Objeto remoto  :::::::::::::::
