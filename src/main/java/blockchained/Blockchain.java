@@ -4,6 +4,7 @@
  */
 package blockchained;
 
+import java.security.Key;
 import java.security.PublicKey;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -126,7 +127,7 @@ public class Blockchain {
      * @param publicKey Chave pública do votante para validação
      * @throws Exception Se a transação for inválida ou o votante já tiver votado
      */
-    public void addTransaction(Transaction transaction, PublicKey publicKey) throws Exception {
+    public void addTransaction(Transaction transaction) throws Exception {
 
         // 1) Garantir que o voto pertence ao utilizador autenticado
         // Obtém as chaves associadas à sessão atual
@@ -137,33 +138,17 @@ public class Blockchain {
         String sessionPub = Base64.getEncoder()
                 .encodeToString(sKeys.publicKey.getEncoded());
 
-        // Verifica se a chave pública do voto corresponde
-        // à chave pública do utilizador autenticado
-        if (!transaction.getPublicVoterKey().equals(sKeys.publicKey)) {
-            throw new IllegalStateException("A chave do voto não corresponde ao utilizador autenticado.");
-        }
-        
-        // Verificação duplicada (possível código legacy)
-        if (!transaction.getPublicVoterKey().equals(sKeys.publicKey)) {
-            throw new IllegalStateException(
-                    "A chave do voto não corresponde ao utilizador autenticado."
-            );
-        }
+
 
         // 2) Validação da transação
         // Confirma assinatura digital, integridade dos dados
         // e outros critérios definidos em isTransactionValid
-        if (!isTransactionValid(transaction, publicKey)) {
+        if (!isTransactionValid(transaction, (PublicKey)transaction.getPublicVoterKey())) {
             throw new IllegalArgumentException("Transação inválida");
         }
 
         // 3) Prevenção de voto duplicado
         // Verifica se este eleitor já votou nesta eleição
-        if (hasVoterVoted(transaction.getPublicVoterKey().toString(), transaction.getElectionId())) {
-            throw new IllegalArgumentException("Voter has already voted in this election");
-        }
-        
-        // Verificação duplicada de voto duplicado
         if (hasVoterVoted(transaction.getPublicVoterKey().toString(), transaction.getElectionId())) {
             throw new IllegalArgumentException(
                     "O eleitor já votou nesta eleição."
@@ -253,6 +238,11 @@ public class Blockchain {
      * @param electionId ID da eleição
      * @return true se já tiver votado, false caso contrário
      */
+    
+    public boolean hasVoted(Key voterPublicKey,String electionId){
+        return hasVoterVoted(voterPublicKey.toString(), electionId);
+    }
+    
     private boolean hasVoterVoted(String voterPublicKey, String electionId) {
         Set<String> votedElections = voterRegistry.get(voterPublicKey);
         boolean hasVoted = votedElections != null && votedElections.contains(electionId);
@@ -398,7 +388,7 @@ public class Blockchain {
             if (chain.get(i).getCurrentHash().equals(desiredHash)) {
                 // Cria uma nova ArrayList a partir da sublista
                 // (todos os blocos desde este até ao fim)
-                list = new ArrayList<>(chain.subList(i, chain.size()));
+                list = new ArrayList<>(chain.subList(i+1, chain.size()));
                 break;
             }
         }

@@ -9,6 +9,7 @@ import blockchained.Blockchain;
 import blockchained.Election;
 import blockchained.Transaction;
 import blockchained.Voter;
+import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.rmi.RemoteException;
@@ -102,7 +103,12 @@ public class RemoteVotingObject extends UnicastRemoteObject implements RemoteVot
      */
     @Override
     public int vote(byte[] voter, byte[] partido, PublicKey voterPublicKey) throws RemoteException {
+        if(blockchain.hasVoted(voterPublicKey, eleicao.getElectionId())){
+            System.out.println(this.getAdress() +  " already Voted!");
+            return 400;
+        }
         try {
+            
             // Desencripta os dados do votante
             System.out.println("Decrypting");
             String username = new String(SecurityUtils.decrypt(voter, aes));
@@ -115,9 +121,13 @@ public class RemoteVotingObject extends UnicastRemoteObject implements RemoteVot
             // Cria e adiciona o voto à blockchain
             System.out.println("Voting");
             Transaction voto = user.castVote(truePartido, eleicao.getElectionId());
-            blockchain.addTransaction(voto, voterPublicKey);
+            blockchain.addTransaction(voto);
             blockchain.minePendingTransactions();
             System.out.println(blockchain.getPendingTransactionCount());
+            
+            
+            broadcastBlock(voto);
+            
             
         } catch (IllegalArgumentException ex) {
             System.out.println("aaaaaa");
@@ -126,9 +136,8 @@ public class RemoteVotingObject extends UnicastRemoteObject implements RemoteVot
             System.getLogger(RemoteVotingObject.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
             return 500; // Erro interno
         }
-        
+        System.out.println("Broadcasting");
         // Propaga o novo bloco para todos os nós da rede
-        broadcastBlock(blockchain.getLatestBlock());
         
         return 200; // Sucesso
     }
@@ -152,8 +161,16 @@ public class RemoteVotingObject extends UnicastRemoteObject implements RemoteVot
      * @throws RemoteException Em caso de erro RMI
      */
     @Override
-    public List<Block> getBlocksFrom(byte[] fromBlockHash) throws RemoteException {
-        return blockchain.getBlocksFrom(new String(fromBlockHash));
+    public byte[] getBlocksFrom(byte[] fromBlockHash) throws RemoteException {
+        try {
+            byte[] aux = SecurityUtils.serialize( blockchain.getBlocksFrom(new String(fromBlockHash)));
+            return SecurityUtils.encrypt(aux, aes);
+        } catch (IOException ex) {
+            System.getLogger(RemoteVotingObject.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+        } catch (Exception ex) {
+            System.getLogger(RemoteVotingObject.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+        }
+        return null;
     }
 
     /**
@@ -179,9 +196,20 @@ public class RemoteVotingObject extends UnicastRemoteObject implements RemoteVot
      * @throws RemoteException Em caso de erro RMI
      */
     @Override
-    public void broadcastBlock(Block block) throws RemoteException {
+    public void broadcastBlock(Transaction transacao) throws RemoteException {
+        
         for (RemoteVotingI node : network) {
-            node.submitBlock(block);
+            try {
+                byte[] nodeAes = node.getAes(rsa.getPublic());
+                Key TrueAes = SecurityUtils.getAESKey(SecurityUtils.decrypt(nodeAes, rsa.getPrivate()));
+                
+                byte[] transbyte =  SecurityUtils.serialize(transacao);
+                transbyte = SecurityUtils.encrypt(transbyte, TrueAes);
+                
+                node.addTransaction(transbyte);
+            } catch (Exception ex) {
+                System.getLogger(RemoteVotingObject.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+            }
         }
     }
 
@@ -236,14 +264,8 @@ public class RemoteVotingObject extends UnicastRemoteObject implements RemoteVot
         network.add(node);
         
         // Sincroniza blockchain com o novo nó
-        if(this.isMyChainShorter(node.getBlockchainHeight())){
-            // Este nó tem blockchain mais curta, recebe blocos do outro
-            blockchain.sync(node.getBlocksFrom(getLatestBlockHash()));
-        } else {
-            // Este nó tem blockchain mais longa, envia blocos ao outro
-            byte[] toFind = node.getLatestBlockHash();
-            node.sync(this.getBlocksFrom(toFind));
-        }
+        this.sync(node);
+        
         
         // Adiciona este nó à rede do novo nó (conexão bidirecional)
         node.addNode(this);
@@ -291,16 +313,30 @@ public class RemoteVotingObject extends UnicastRemoteObject implements RemoteVot
     /**
      * Adiciona uma transação ao conjunto de transações pendentes
      * 
-     * @param data Dados da transação
+     * @param transacao
      * @throws RemoteException Em caso de erro RMI
      */
     @Override
-    public void addTransaction(String data) throws RemoteException {
-        // Evita adicionar transações duplicadas
-        if (this.transactions.contains(data)) {
-            return;
+    public void addTransaction(byte[] transacao) throws RemoteException {
+
+        try {
+            byte[] aux = SecurityUtils.decrypt(transacao, aes);
+            Transaction trueTransacao = (Transaction) SecurityUtils.deserialize(aux);
+            
+            // Evita adicionar transações duplicadas
+            addTransaction(trueTransacao);
+        } catch (Exception ex) {
+            System.getLogger(RemoteVotingObject.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
         }
-        this.transactions.add(data);
+    }
+    
+    public void addTransaction(Transaction transacao){
+        try {
+            blockchain.addTransaction(transacao);
+            blockchain.minePendingTransactions();
+        } catch (Exception ex) {
+            System.out.println("Já tenho este voto");
+        }
     }
 
     /**
@@ -442,7 +478,43 @@ public class RemoteVotingObject extends UnicastRemoteObject implements RemoteVot
      * @throws RemoteException Em caso de erro RMI
      */
     @Override
-    public void sync(List<Block> newBlocks) throws RemoteException {
-        blockchain.sync(newBlocks);
+    public void sync(RemoteVotingI node) throws RemoteException {
+                if(this.isMyChainShorter(node.getBlockchainHeight())){
+                    try {
+                        // Este nó tem blockchain mais curta, recebe blocos do outro
+                        String[] hashes = node.getBlockHashes();
+                        String[] myhashes = blockchain.getBlockHashes();
+                        
+                        
+                        int len = Math.min(hashes.length, myhashes.length);
+                        List<String> common = new ArrayList<>();
+                        
+                        for (int i = 0; i < len; i++) {
+                            if (!hashes[i].equals(myhashes[i])) {
+                                break;
+                            }
+                            common.add(hashes[i]);
+                            
+                        }
+                        String lastCommon = common.isEmpty() ? null : common.get(common.size() - 1);
+                        
+                        
+                        
+                        byte[ ] aux =  SecurityUtils.decrypt(node.getAes(rsa.getPublic()), rsa.getPrivate());
+                        aux = SecurityUtils.decrypt(node.getBlocksFrom(lastCommon.getBytes()), SecurityUtils.getAESKey(aux));
+                        List<Block> blocks = (List<Block>) SecurityUtils.deserialize(aux);
+                        
+                        
+                        
+                        for (Block block : blocks) {
+                            for (Transaction trans : block.getTransactions()) {
+                                this.addTransaction(trans);
+                            }
+                        }       } catch (Exception ex) {
+                        System.getLogger(RemoteVotingObject.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+                    }
+            
+            
+        }
     }
 }

@@ -5,6 +5,7 @@
 package RemoteNodes;
 
 import blockchained.Block;
+import blockchained.Transaction;
 import java.rmi.Remote;
 import java.rmi.RemoteException;
 import java.security.Key;
@@ -37,10 +38,10 @@ public interface RemoteVotingI extends Remote {
     /**
      * Request blocks starting from a known hash.
      */
-    List<Block> getBlocksFrom(byte[] fromBlockHash) throws RemoteException;
+    byte[] getBlocksFrom(byte[] fromBlockHash) throws RemoteException;
     
     
-    void sync(List<Block> newBlocks)throws RemoteException;
+    void sync(RemoteVotingI node)throws RemoteException;
     /**
      * Receive a block propagated by a peer.
      */
@@ -53,7 +54,7 @@ public interface RemoteVotingI extends Remote {
     /**
      * Notify peers of a new block.
      */
-    void broadcastBlock(Block block) throws RemoteException;
+    void broadcastBlock(Transaction transacao) throws RemoteException;
     
     
     
@@ -82,7 +83,7 @@ public interface RemoteVotingI extends Remote {
     public List<RemoteVotingI> getNetwork() throws RemoteException;
 
     //::::::::::: T R A N S A C T I O N S  :::::::::::
-    public void addTransaction(String data) throws RemoteException;
+    public void addTransaction(byte[] transacao) throws RemoteException;
 
     public List<String> getTransactions() throws RemoteException;
 

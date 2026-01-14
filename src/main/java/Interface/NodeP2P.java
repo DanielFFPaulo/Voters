@@ -452,6 +452,7 @@ public class NodeP2P extends javax.swing.JFrame implements NodeListener, MinerLi
             // 3) Enviar voto
             myremoteObject.vote(voterEncrypted, partidoEncrypted, sKeys.publicKey);
 
+
             // 4) Mensagem de confirmação
             javax.swing.JOptionPane.showMessageDialog(
                     this,
@@ -460,6 +461,10 @@ public class NodeP2P extends javax.swing.JFrame implements NodeListener, MinerLi
                     javax.swing.JOptionPane.INFORMATION_MESSAGE
             );
 
+            
+            
+            
+            
             // 5) Logout automático
             Session.logout();
 
@@ -474,6 +479,10 @@ public class NodeP2P extends javax.swing.JFrame implements NodeListener, MinerLi
             // 6) Atualizar UI (ajusta ao teu projeto)
             userNameField.setText("");
             partidosOptions.setSelectedIndex(0);
+            
+            
+            
+            
 
             // Se tiveres campos/botões que dependem de login:
             // voteBtn.setEnabled(false);
@@ -500,6 +509,13 @@ public class NodeP2P extends javax.swing.JFrame implements NodeListener, MinerLi
             System.getLogger(NodeP2P.class.getName())
                     .log(System.Logger.Level.ERROR, "Erro ao votar", ex);
         }
+        
+        
+        
+        
+        
+        
+        
     }//GEN-LAST:event_voteBtnActionPerformed
 
     
